@@ -16,6 +16,9 @@ import (
 // BUGGY was: regexp.MatchString(...) in every processImage call
 var imagePattern = regexp.MustCompile(`^image_worker\d+_\d+$`)
 
+// statsLogInterval defines how often processing statistics are logged.
+const statsLogInterval = 5 * time.Second
+
 // FIXED: Bounded cache with mutex to prevent memory leak and race conditions
 // BUGGY was: var LeakCache = make(map[string][]byte) with no bounds
 const maxCacheSize = 100
@@ -47,7 +50,7 @@ func RunWorkerPool(count int) {
 
 // logStats logs processing statistics every 5 seconds.
 func logStats() {
-	ticker := time.NewTicker(5 * time.Second)
+	ticker := time.NewTicker(statsLogInterval)
 	defer ticker.Stop()
 
 	for range ticker.C {
@@ -83,18 +86,18 @@ func processImage(workerID int) {
 		// FIXED: Bounded cache with mutex prevents memory leak and race conditions
 		// BUGGY was: direct write without bounds: LeakCache[key] = make([]byte, 1024*10)
 		cacheMu.Lock()
-		cached := false
+		addedToCache := false
 		if len(leakCache) < maxCacheSize {
 			key := fmt.Sprintf("key_%d", time.Now().UnixNano())
 			leakCache[key] = make([]byte, 1024*10) // 10KB per entry
-			cached = true
+			addedToCache = true
 		}
 		cacheMu.Unlock()
 
 		log.Debug().
 			Int("worker_id", workerID).
 			Dur("duration", time.Since(start)).
-			Bool("cached", cached).
+			Bool("added_to_cache", addedToCache).
 			Msg("Image processed")
 	}
 }
