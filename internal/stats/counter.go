@@ -9,7 +9,7 @@ var (
 	// GlobalStats tracks counts of processed items by type
 	GlobalStats = make(map[string]int)
 
-	// Mutex protects concurrent access to GlobalStats
+	// mu protects all concurrent access to GlobalStats map
 	mu = &sync.RWMutex{}
 )
 
