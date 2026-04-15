@@ -7,6 +7,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/rs/zerolog/log"
+
 	"github.com/paulsamtsov/lab3-detector/internal/stats"
 )
 
@@ -25,15 +27,41 @@ var (
 
 // RunWorkerPool starts a pool of worker goroutines for image processing.
 func RunWorkerPool(count int) {
+	log.Info().Int("workers", count).Msg("Starting worker pool")
+
 	for i := 0; i < count; i++ {
 		go func(id int) {
+			log.Info().Int("worker_id", id).Msg("Worker started")
 			for {
 				processImage(id)
 				time.Sleep(10 * time.Millisecond)
 			}
 		}(i)
 	}
+
+	// Log stats periodically
+	go logStats()
+
 	select {} // block forever
+}
+
+// logStats logs processing statistics every 5 seconds.
+func logStats() {
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		cacheSize, cacheMax := GetCacheStats()
+		allStats := stats.GetStats()
+		total := stats.GetTotal()
+
+		log.Info().
+			Int("total_processed", total).
+			Int("cache_size", cacheSize).
+			Int("cache_max", cacheMax).
+			Interface("by_type", allStats).
+			Msg("Processing stats")
+	}
 }
 
 // processImage processes a single image metadata.
@@ -42,6 +70,8 @@ func RunWorkerPool(count int) {
 // 2. CPU Bottleneck: regexp.MatchString compiled regex on every call
 // 3. Race Condition: LeakCache written from multiple goroutines without mutex
 func processImage(workerID int) {
+	start := time.Now()
+
 	// Create image data identifier
 	data := fmt.Sprintf("image_worker%d_%d", workerID, time.Now().UnixNano())
 
@@ -53,11 +83,19 @@ func processImage(workerID int) {
 		// FIXED: Bounded cache with mutex prevents memory leak and race conditions
 		// BUGGY was: direct write without bounds: LeakCache[key] = make([]byte, 1024*10)
 		cacheMu.Lock()
+		cached := false
 		if len(leakCache) < maxCacheSize {
 			key := fmt.Sprintf("key_%d", time.Now().UnixNano())
 			leakCache[key] = make([]byte, 1024*10) // 10KB per entry
+			cached = true
 		}
 		cacheMu.Unlock()
+
+		log.Debug().
+			Int("worker_id", workerID).
+			Dur("duration", time.Since(start)).
+			Bool("cached", cached).
+			Msg("Image processed")
 	}
 }
 

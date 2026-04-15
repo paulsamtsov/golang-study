@@ -34,3 +34,15 @@ func GetStats() map[string]int {
 	}
 	return result
 }
+
+// GetTotal returns the total number of processed items across all types.
+func GetTotal() int {
+	mu.RLock()
+	defer mu.RUnlock()
+
+	total := 0
+	for _, v := range GlobalStats {
+		total += v
+	}
+	return total
+}
