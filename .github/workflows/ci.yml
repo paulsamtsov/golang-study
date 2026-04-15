@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Checkout code
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Step 2: Setup Go
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.26.1'
+
+      # Step 3: Verify Dependencies
+      - name: Verify Dependencies
+        run: go mod verify
+
+      # Step 4: Run golangci-lint
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v3
+        with:
+          version: latest
+
+      # Step 5: Run Tests with Race Detector
+      - name: Run Tests
+        run: make test
+
+      # Step 6: Run Benchmarks (Lab 3 specific)
+      - name: Run Benchmarks
+        run: make bench
+
+      # Step 7: Build Binary
+      - name: Build
+        run: make build
