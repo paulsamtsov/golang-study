@@ -81,3 +81,18 @@ func TestConcurrentReadWrite(t *testing.T) {
 		t.Errorf("Expected %d, got %d", expectedCount, stats["image"])
 	}
 }
+
+// TestGetTotal verifies that GetTotal returns the correct sum across all types.
+func TestGetTotal(t *testing.T) {
+	mu.Lock()
+	GlobalStats = make(map[string]int)
+	mu.Unlock()
+
+	IncrementProcessed("jpeg")
+	IncrementProcessed("jpeg")
+	IncrementProcessed("png")
+
+	if got := GetTotal(); got != 3 {
+		t.Errorf("GetTotal() = %d, want 3", got)
+	}
+}
